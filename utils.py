@@ -6,7 +6,6 @@ import platform
 import time
 import threading
 
-
 clipboard_lock = threading.Lock()
 typing_in_progress = False
 
@@ -43,9 +42,10 @@ def type_text(text):
 def send_backspaces(count):
     global typing_in_progress
     if count <= 0: return
+    # 安全阀：单词同步删除操作不允许超过 20 个退格，防止误删电脑原生内容
+    safe_count = min(count, 20)
     typing_in_progress = True
-    # 优化：pyautogui 支持一次性发送多个按键，速度比循环快得多
-    pyautogui.press('backspace', presses=count, interval=0.005) 
+    pyautogui.press('backspace', presses=safe_count, interval=0.005) 
     typing_in_progress = False
 
 def is_typing():

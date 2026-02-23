@@ -41,30 +41,37 @@ HTML_PAGE = """
     <div class="paper">
         <textarea id="tx" placeholder="在此输入，电脑端自动同步..." autofocus></textarea>
         <div class="info-row" style="padding: 5px 16px;">
-            <span id="st_detail">实时同步中</span>
+            <span id="st_detail">增量同步模式已就绪</span>
             <span id="count">已同步 0 字</span>
         </div>
     </div>
     <div class="bottom-bar">
-        <button class="clear-btn" onclick="clearText()">清空输入记录</button>
+        <button class="clear-btn" onclick="clearText(true)">手动复位输入框</button>
     </div>
     <div class="modal" id="md">
         <div class="modal-content">
             <h3 style="margin-bottom:20px;">同步设置</h3>
             <div class="row"><span>发送延迟(ms)</span><input type="number" id="dly" value="300" style="width:60px"></div>
-            <div class="row"><span>键盘检测</span><input type="checkbox" id="kb" checked></div>
+            <div class="row"><span>15s 自动消失</span><input type="checkbox" id="auto_clr" checked></div>
+            <div class="row"><span>智能感知重置</span><input type="checkbox" id="kb" checked></div>
             <button class="close-btn" onclick="closeM()">完成</button>
         </div>
     </div>
     <script>
         const tx = document.getElementById('tx'), st = document.getElementById('st'), 
-              dot = document.getElementById('dot'), count = document.getElementById('count');
-        let ws, lastText = '', total = 0, ignoreLen = 0, timer;
+              dot = document.getElementById('dot'), count = document.getElementById('count'),
+              st_detail = document.getElementById('st_detail');
+        let ws, lastText = '', total = 0, ignoreLen = 0, timer, autoClearTimer;
 
         function openM(){ document.getElementById('md').style.display='flex'; }
-        function closeM(){ document.getElementById('md').style.display='none'; save(); }
-        function save(){ localStorage.setItem('cfg', JSON.stringify({d:document.getElementById('dly').value, k:document.getElementById('kb').checked})); syncCfg(); }
-        function syncCfg(){ if(ws?.readyState===1) ws.send(JSON.stringify({type:'config', detectKeyboard:document.getElementById('kb').checked})); }
+        function closeM(){ document.getElementById('md').style.display='none'; syncCfg(); }
+        
+        function syncCfg(){ 
+            if(ws?.readyState===1) ws.send(JSON.stringify({
+                type:'config', 
+                detectKeyboard:document.getElementById('kb').checked
+            })); 
+        }
         
         function connect(){
             ws = new WebSocket(`ws://${location.host}/ws`);
@@ -73,14 +80,17 @@ HTML_PAGE = """
             ws.onmessage = (e) => {
                 const d = JSON.parse(e.data);
                 if(d.type==='rebase'){ 
+                    // 【关键实现】锁定当前输入框长度，防止退格返回上一段
                     ignoreLen = tx.value.length; 
                     lastText = ''; 
-                    st.innerText='电脑端已介入'; 
-                    setTimeout(()=>st.innerText='已连接', 1500); 
+                    st_detail.innerText='电脑端操作中：本段已锁定'; 
+                    setTimeout(()=>st_detail.innerText='实时同步中', 1500); 
                 }
             };
         }
+
         tx.oninput = () => {
+            // 1. 计算当前有效段落并发送
             clearTimeout(timer);
             timer = setTimeout(() => {
                 const effective = tx.value.substring(ignoreLen);
@@ -92,12 +102,22 @@ HTML_PAGE = """
                     lastText = effective;
                 }
             }, document.getElementById('dly').value);
-        };
-        function clearText(){ 
-            if(confirm('确定要清空输入记录吗？')){
-                tx.value=''; lastText=''; ignoreLen=0; 
-                if(ws?.readyState===1) ws.send(JSON.stringify({type:'reset'})); 
+
+            // 2. 自动消失计时
+            clearTimeout(autoClearTimer);
+            if(document.getElementById('auto_clr').checked) {
+                autoClearTimer = setTimeout(() => {
+                    if(tx.value !== '') clearText(false);
+                }, 15000); 
             }
+        };
+
+        function clearText(manual){ 
+            if(manual && !confirm('确定要清空手机界面吗？')) return;
+            tx.value=''; lastText=''; ignoreLen=0; 
+            if(ws?.readyState===1) ws.send(JSON.stringify({type:'reset'})); 
+            st_detail.innerText = manual ? '已手动复位' : '已自动复位';
+            setTimeout(()=>st_detail.innerText='实时同步中', 1500);
         }
         connect();
     </script>
