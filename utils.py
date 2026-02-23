@@ -6,6 +6,7 @@ import platform
 import time
 import threading
 
+
 clipboard_lock = threading.Lock()
 typing_in_progress = False
 
@@ -34,7 +35,7 @@ def type_text(text):
             pyperclip.copy(text)
             cmd = 'command' if platform.system() == 'Darwin' else 'ctrl'
             pyautogui.hotkey(cmd, 'v')
-            time.sleep(0.1)
+            time.sleep(0.01)
             pyperclip.copy(orig)
         except: pass
     typing_in_progress = False
@@ -43,9 +44,8 @@ def send_backspaces(count):
     global typing_in_progress
     if count <= 0: return
     typing_in_progress = True
-    for _ in range(count):
-        pyautogui.press('backspace')
-        time.sleep(0.02)
+    # 优化：pyautogui 支持一次性发送多个按键，速度比循环快得多
+    pyautogui.press('backspace', presses=count, interval=0.005) 
     typing_in_progress = False
 
 def is_typing():
