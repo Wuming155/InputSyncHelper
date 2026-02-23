@@ -1,0 +1,10 @@
+# 网络与 Web 服务
+aiohttp          # 异步 HTTP/WebSocket 服务器
+# 硬件控制与模拟
+pyautogui       # 模拟键盘输入与粘贴
+pyperclip       # 剪贴板操作
+pynput          # 监听物理键盘和鼠标事件
+# 图形界面与 UI 增强
+Pillow          # 图像处理（用于二维码和托盘图标）
+qrcode          # 生成连接二维码
+pystray         # 系统托盘图标支持
