@@ -2,9 +2,11 @@ name: 自动编译发布 InputSyncHelper
 
 on:
   push:
+    branches:
+      - main     # 只要推送到 main 分支就触发
     tags:
-      - 'v*'
-  workflow_dispatch: 
+      - 'v*'      # 推送以 v 开头的标签也触发
+  workflow_dispatch: # 支持在 GitHub 网页上手动点击运行
 
 permissions:
   contents: write
@@ -25,10 +27,13 @@ jobs:
       - name: 3. 安装依赖库
         run: |
           python -m pip install --upgrade pip
-          pip install aiohttp pynput pyautogui pyperclip qrcode pillow pyinstaller pystray
+          # 直接使用你的 requirements.txt，确保包含 pystray
+          pip install -r requirements.txt
+          pip install pyinstaller
 
       - name: 4. 使用 PyInstaller 打包单文件
         run: |
+          # 使用 logo.ico 打包，生成 InputSyncHelper.exe
           pyinstaller --noconsole --onefile --clean --icon=logo.ico --name "InputSyncHelper" main.py
 
       - name: 5. 制作便携版压缩包 (.zip)
@@ -37,12 +42,11 @@ jobs:
           Compress-Archive -Path dist/InputSyncHelper.exe -DestinationPath dist/InputSyncHelper_Portable.zip
 
       - name: 6. 制作安装包 (使用 Inno Setup)
-        # Windows-latest 镜像自带 ISCC 命令
         run: |
-          # 现场生成一个简单的 Inno Setup 脚本
+          # 动态生成安装脚本，版本号使用自动递增的运行编号
           echo '[Setup]' > setup.iss
           echo 'AppName=InputSyncHelper' >> setup.iss
-          echo 'AppVersion=${{ github.ref_name }}' >> setup.iss
+          echo 'AppVersion=1.0.${{ github.run_number }}' >> setup.iss
           echo 'DefaultDirName={autopf}\InputSyncHelper' >> setup.iss
           echo 'DefaultGroupName=InputSyncHelper' >> setup.iss
           echo 'UninstallDisplayIcon={app}\InputSyncHelper.exe' >> setup.iss
@@ -66,6 +70,8 @@ jobs:
             dist/InputSyncHelper_Portable.zip
             dist/InputSyncHelper_Setup.exe
           generate_release_notes: true
-          tag_name: ${{ github.ref_name }}
+          # 核心：自动修改标签名，避免重复冲突
+          tag_name: build-${{ github.run_number }}
+          name: "InputSyncHelper 自动构建 #${{ github.run_number }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
