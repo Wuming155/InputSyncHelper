@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+  # 关键点：添加下面这一行，启用手动触发按钮
+  workflow_dispatch: 
 
 permissions:
   contents: write
@@ -28,13 +30,19 @@ jobs:
 
       - name: 4. 使用 PyInstaller 打包 (包含图标)
         run: |
-          # 关键修改：加入了 --icon=logo.ico
+          # 使用项目中的 logo.ico
           pyinstaller --noconsole --onefile --clean --icon=logo.ico --name "InputSyncHelper" main.py
 
       - name: 5. 创建 GitHub Release 并上传安装包
         uses: softprops/action-gh-release@v2
         with:
+          # 手动运行时，如果没有新标签，它会尝试发布到最近的一个 Release
           files: dist/InputSyncHelper.exe
           generate_release_notes: true
+          # 设为 true 可以在手动测试时先不公开，或者直接设为 false 覆盖
+          draft: false 
+          prerelease: false
+          # 如果没有 tag 触发，手动运行通常需要一个名字，这里可以用运行编号
+          tag_name: manual-build-${{ github.run_number }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
