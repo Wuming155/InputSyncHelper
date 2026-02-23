@@ -42,8 +42,9 @@ def type_text(text):
 def send_backspaces(count):
     global typing_in_progress
     if count <= 0: return
-    # 安全阀：单词同步删除操作不允许超过 20 个退格，防止误删电脑原生内容
-    safe_count = min(count, 20)
+    # 安全阀：单词同步删除操作不允许超过 100 个退格，防止误删电脑原生内容
+    # 增加到100以支持AI输入法对长文本的修改
+    safe_count = min(count, 100)
     typing_in_progress = True
     pyautogui.press('backspace', presses=safe_count, interval=0.005) 
     typing_in_progress = False
