@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  # 关键点：添加下面这一行，启用手动触发按钮
   workflow_dispatch: 
 
 permissions:
@@ -28,21 +27,45 @@ jobs:
           python -m pip install --upgrade pip
           pip install aiohttp pynput pyautogui pyperclip qrcode pillow pyinstaller
 
-      - name: 4. 使用 PyInstaller 打包 (包含图标)
+      - name: 4. 使用 PyInstaller 打包单文件
         run: |
-          # 使用项目中的 logo.ico
           pyinstaller --noconsole --onefile --clean --icon=logo.ico --name "InputSyncHelper" main.py
 
-      - name: 5. 创建 GitHub Release 并上传安装包
+      - name: 5. 制作便携版压缩包 (.zip)
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/InputSyncHelper.exe -DestinationPath dist/InputSyncHelper_Portable.zip
+
+      - name: 6. 制作安装包 (使用 Inno Setup)
+        # Windows-latest 镜像自带 ISCC 命令
+        run: |
+          # 现场生成一个简单的 Inno Setup 脚本
+          echo '[Setup]' > setup.iss
+          echo 'AppName=InputSyncHelper' >> setup.iss
+          echo 'AppVersion=${{ github.ref_name }}' >> setup.iss
+          echo 'DefaultDirName={autopf}\InputSyncHelper' >> setup.iss
+          echo 'DefaultGroupName=InputSyncHelper' >> setup.iss
+          echo 'UninstallDisplayIcon={app}\InputSyncHelper.exe' >> setup.iss
+          echo 'Compression=lzma2' >> setup.iss
+          echo 'SolidCompression=yes' >> setup.iss
+          echo 'OutputDir=dist' >> setup.iss
+          echo 'OutputBaseFilename=InputSyncHelper_Setup' >> setup.iss
+          echo '[Files]' >> setup.iss
+          echo 'Source: "dist\InputSyncHelper.exe"; DestDir: "{app}"; Flags: ignoreversion' >> setup.iss
+          echo '[Icons]' >> setup.iss
+          echo 'Name: "{group}\InputSyncHelper"; Filename: "{app}\InputSyncHelper.exe"' >> setup.iss
+          echo 'Name: "{commondesktop}\InputSyncHelper"; Filename: "{app}\InputSyncHelper.exe"' >> setup.iss
+          
+          # 执行编译安装包
+          iscc setup.iss
+
+      - name: 7. 发布 Release 并上传所有格式
         uses: softprops/action-gh-release@v2
         with:
-          # 手动运行时，如果没有新标签，它会尝试发布到最近的一个 Release
-          files: dist/InputSyncHelper.exe
+          files: |
+            dist/InputSyncHelper_Portable.zip
+            dist/InputSyncHelper_Setup.exe
           generate_release_notes: true
-          # 设为 true 可以在手动测试时先不公开，或者直接设为 false 覆盖
-          draft: false 
-          prerelease: false
-          # 如果没有 tag 触发，手动运行通常需要一个名字，这里可以用运行编号
-          tag_name: manual-build-${{ github.run_number }}
+          tag_name: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
