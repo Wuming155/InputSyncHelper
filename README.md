@@ -8,7 +8,10 @@
 
 ## 📸 界面预览
 
----
+<div style="display:flex;gap:12px;">
+  <img src="PC.png" alt="PC 端界面" style="width:50%;border:1px solid #ddd;border-radius:6px;">
+  <img src="Android.jpg" alt="安卓端界面" style="width:50%;border:1px solid #ddd;border-radius:6px;">
+</div>
 
 ## ✨ 核心亮点
 
