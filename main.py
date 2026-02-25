@@ -15,7 +15,7 @@ class DesktopApp:
     def __init__(self, root):
         self.root = root
         self.root.title("输入同步助手")
-        self.root.geometry("350x450")
+        self.root.geometry("350x500")
         self.root.attributes("-topmost", True)
         
         main = ttk.Frame(root, padding="20")
@@ -37,6 +37,24 @@ class DesktopApp:
         self.status.pack(pady=10)
         
         ttk.Separator(main, orient='horizontal').pack(fill='x', pady=10)
+        
+        # 添加退格次数设置
+        ttk.Label(main, text="退格次数限制", font=("Arial", 10, "bold")).pack(pady=5)
+        
+        # 创建输入框和默认值
+        self.backspace_frame = ttk.Frame(main)
+        self.backspace_frame.pack(pady=5)
+        
+        ttk.Label(self.backspace_frame, text="安全限制：").pack(side=tk.LEFT, padx=5)
+        self.backspace_entry = ttk.Entry(self.backspace_frame, width=10)
+        self.backspace_entry.pack(side=tk.LEFT, padx=5)
+        self.backspace_entry.insert(0, "100")  # 默认值
+        
+        ttk.Label(self.backspace_frame, text="次").pack(side=tk.LEFT, padx=5)
+        
+        # 保存按钮
+        ttk.Button(main, text="保存设置", command=self.save_settings).pack(pady=5)
+        
         ttk.Label(main, text="提示：点击 [ — ] 缩小到托盘\n（请确保手机与电脑在同一 Wi-Fi）", foreground="gray", font=("Arial", 9)).pack()
         
         self.root.bind("<Unmap>", self.on_minimize)
@@ -78,6 +96,22 @@ class DesktopApp:
     def show(self): 
         self.root.after(0, self.root.deiconify)
         self.root.after(10, lambda: self.root.state('normal'))
+
+    def save_settings(self):
+        """保存用户设置"""
+        try:
+            backspace_limit = int(self.backspace_entry.get())
+            if backspace_limit > 0:
+                utils.set_backspace_limit(backspace_limit)
+                # 显示保存成功提示
+                self.status.config(text="● 设置保存成功", foreground="#28a745")
+                self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
+            else:
+                self.status.config(text="● 请输入正数", foreground="red")
+                self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
+        except ValueError:
+            self.status.config(text="● 请输入数字", foreground="red")
+            self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
 
     def quit_all(self): 
         self.icon.stop()
