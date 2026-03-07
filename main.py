@@ -15,7 +15,7 @@ class DesktopApp:
     def __init__(self, root):
         self.root = root
         self.root.title("输入同步助手")
-        self.root.geometry("350x500")
+        self.root.geometry("500x600")
         self.root.attributes("-topmost", True)
         
         main = ttk.Frame(root, padding="20")
