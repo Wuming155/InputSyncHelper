@@ -12,12 +12,7 @@ typing_in_progress = False
 backspace_limit = 100
 
 def get_local_ip():
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('8.8.8.8', 80))
-        ip = s.getsockname()[0]; s.close()
-        return ip
-    except: return '127.0.0.1'
+    return '192.168.10.13'
 
 def compute_diff(old, new):
     common = 0
