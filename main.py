@@ -95,39 +95,9 @@ class DesktopApp:
         save_frame.pack(side=tk.TOP, pady=10, fill=tk.X)
         ttk.Button(save_frame, text="保存设置", command=self.save_settings).pack()
         
-        # 添加滚动条和可滚动的内容框架
-        canvas = tk.Canvas(main_frame)
-        scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
-        
-        # 绑定滚动事件
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
-            )
-        )
-        
-        # 绑定鼠标滚轮事件
-        def on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        
-        canvas.bind_all("<MouseWheel>", on_mousewheel)
-        
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        # 当窗口大小改变时，调整canvas内容的宽度
-        def on_canvas_configure(event):
-            canvas.itemconfig(canvas_window, width=event.width)
-        
-        # 创建窗口
-        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.bind("<Configure>", on_canvas_configure)
-        
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        settings_frame = scrollable_frame
+        # 内容框架
+        settings_frame = ttk.Frame(main_frame)
+        settings_frame.pack(fill=tk.BOTH, expand=True)
         
         # IP地址设置
         ip_frame = ttk.Frame(settings_frame)
