@@ -31,15 +31,16 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: 4. 使用 PyInstaller 打包单文件
+      - name: 4. 使用 PyInstaller 打包（文件夹模式）
         run: |
-          # 使用 logo.ico 打包，生成 InputSyncHelper.exe
-          pyinstaller --noconsole --onefile --clean --icon=logo.ico --name "InputSyncHelper" main.py
+          # 使用 logo.ico 打包，生成包含依赖的文件夹
+          pyinstaller --noconsole --onedir --clean --icon=logo.ico --name "InputSyncHelper" main.py
 
       - name: 5. 制作便携版压缩包 (.zip)
         shell: pwsh
         run: |
-          Compress-Archive -Path dist/InputSyncHelper.exe -DestinationPath dist/InputSyncHelper_Portable.zip
+          # 压缩整个文件夹（包含 InputSyncHelper.exe 和所有依赖）
+          Compress-Archive -Path dist/InputSyncHelper/* -DestinationPath dist/InputSyncHelper_Portable.zip
 
       - name: 6. 制作安装包 (使用 Inno Setup)
         run: |
@@ -55,7 +56,7 @@ jobs:
           echo 'OutputDir=dist' >> setup.iss
           echo 'OutputBaseFilename=InputSyncHelper_Setup' >> setup.iss
           echo '[Files]' >> setup.iss
-          echo 'Source: "dist\InputSyncHelper.exe"; DestDir: "{app}"; Flags: ignoreversion' >> setup.iss
+          echo 'Source: "dist\InputSyncHelper\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs' >> setup.iss
           echo '[Icons]' >> setup.iss
           echo 'Name: "{group}\InputSyncHelper"; Filename: "{app}\InputSyncHelper.exe"' >> setup.iss
           echo 'Name: "{commondesktop}\InputSyncHelper"; Filename: "{app}\InputSyncHelper.exe"' >> setup.iss
