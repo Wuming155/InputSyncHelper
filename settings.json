@@ -1,6 +1,10 @@
 {
-  "ip": "192.168.10.23",
+  "ip": "",
   "port": 5000,
   "window_size": "350x500",
+  "settings_window_size": "500x350",
+  "smart_detection": false,
+  "auto_clear": false,
+  "auto_clear_time": 15,
   "backspace_limit": 100
 }

@@ -19,11 +19,15 @@ class DesktopApp:
     def __init__(self, root):
         self.root = root
         self.root.title("输入同步助手")
-        self.root.geometry(utils.get_window_size())
+        # 暂时不设置固定大小，让窗口根据内容自动调整
         self.root.attributes("-topmost", True)
         
         main = ttk.Frame(root, padding="20")
         main.pack(fill=tk.BOTH, expand=True)
+        
+        # 让窗口根据内容自动调整大小
+        self.root.update()
+        self.root.minsize(self.root.winfo_width(), self.root.winfo_height())
         
         # 创建工具栏
         toolbar = ttk.Frame(main)
@@ -57,7 +61,11 @@ class DesktopApp:
         self.ip_entry = None
         self.port_entry = None
         self.size_entry = None
+        self.settings_size_entry = None
         self.backspace_entry = None
+        self.smart_detection_var = None
+        self.auto_clear_var = None
+        self.auto_clear_time_entry = None
         
         # 初始化URL和二维码
         self.update_url()
@@ -74,12 +82,52 @@ class DesktopApp:
         
         self.settings_window = tk.Toplevel(self.root)
         self.settings_window.title("自定义")
-        self.settings_window.geometry("400x300")
+        # 暂时不设置固定大小，让窗口根据内容自动调整
         self.settings_window.transient(self.root)
         self.settings_window.grab_set()
         
-        settings_frame = ttk.Frame(self.settings_window, padding="20")
-        settings_frame.pack(fill=tk.BOTH, expand=True)
+        # 主框架
+        main_frame = ttk.Frame(self.settings_window, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # 保存按钮放在顶部
+        save_frame = ttk.Frame(main_frame)
+        save_frame.pack(side=tk.TOP, pady=10, fill=tk.X)
+        ttk.Button(save_frame, text="保存设置", command=self.save_settings).pack()
+        
+        # 添加滚动条和可滚动的内容框架
+        canvas = tk.Canvas(main_frame)
+        scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+        
+        # 绑定滚动事件
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+        
+        # 绑定鼠标滚轮事件
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind_all("<MouseWheel>", on_mousewheel)
+        
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # 当窗口大小改变时，调整canvas内容的宽度
+        def on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+        
+        # 创建窗口
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.bind("<Configure>", on_canvas_configure)
+        
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        settings_frame = scrollable_frame
         
         # IP地址设置
         ip_frame = ttk.Frame(settings_frame)
@@ -88,7 +136,6 @@ class DesktopApp:
         self.ip_entry = ttk.Entry(ip_frame)
         self.ip_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
         self.ip_entry.insert(0, utils.settings.get('ip', ''))
-        ttk.Label(ip_frame, text="（留空使用自动检测）").pack(side=tk.LEFT, padx=5)
         
         # 端口号设置
         port_frame = ttk.Frame(settings_frame)
@@ -107,6 +154,15 @@ class DesktopApp:
         self.size_entry.insert(0, utils.get_window_size())
         ttk.Label(size_frame, text="（格式：宽x高）").pack(side=tk.LEFT, padx=5)
         
+        # 设置窗口大小设置
+        settings_size_frame = ttk.Frame(settings_frame)
+        settings_size_frame.pack(pady=5, fill=tk.X)
+        ttk.Label(settings_size_frame, text="设置窗口：", width=10).pack(side=tk.LEFT, padx=5)
+        self.settings_size_entry = ttk.Entry(settings_size_frame, width=10)
+        self.settings_size_entry.pack(side=tk.LEFT, padx=5)
+        self.settings_size_entry.insert(0, utils.get_settings_window_size())
+        ttk.Label(settings_size_frame, text="（格式：宽x高）").pack(side=tk.LEFT, padx=5)
+        
         # 退格次数限制设置
         backspace_frame = ttk.Frame(settings_frame)
         backspace_frame.pack(pady=5, fill=tk.X)
@@ -116,8 +172,32 @@ class DesktopApp:
         self.backspace_entry.insert(0, "100")  # 默认值
         ttk.Label(backspace_frame, text="次").pack(side=tk.LEFT, padx=5)
         
-        # 保存按钮
-        ttk.Button(settings_frame, text="保存设置", command=self.save_settings).pack(pady=15)
+        # 智能感知开关设置
+        smart_detection_frame = ttk.Frame(settings_frame)
+        smart_detection_frame.pack(pady=5, fill=tk.X)
+        ttk.Label(smart_detection_frame, text="智能感知：", width=10).pack(side=tk.LEFT, padx=5)
+        self.smart_detection_var = tk.BooleanVar(value=utils.get_smart_detection())
+        ttk.Checkbutton(smart_detection_frame, variable=self.smart_detection_var, text="开启电脑操作检测\n（开启后，电脑操作会重置同步状态）").pack(side=tk.LEFT, padx=5, anchor=tk.W)
+        
+        # 自动清空开关设置
+        auto_clear_frame = ttk.Frame(settings_frame)
+        auto_clear_frame.pack(pady=5, fill=tk.X)
+        ttk.Label(auto_clear_frame, text="自动清空：", width=10).pack(side=tk.LEFT, padx=5)
+        self.auto_clear_var = tk.BooleanVar(value=utils.get_auto_clear())
+        ttk.Checkbutton(auto_clear_frame, variable=self.auto_clear_var, text="开启自动清空\n（开启后，输入一段时间后会自动清空输入框）").pack(side=tk.LEFT, padx=5, anchor=tk.W)
+        
+        # 自动清空时间设置
+        auto_clear_time_frame = ttk.Frame(settings_frame)
+        auto_clear_time_frame.pack(pady=5, fill=tk.X)
+        ttk.Label(auto_clear_time_frame, text="清空时间：", width=10).pack(side=tk.LEFT, padx=5)
+        self.auto_clear_time_entry = ttk.Entry(auto_clear_time_frame, width=10)
+        self.auto_clear_time_entry.pack(side=tk.LEFT, padx=5)
+        self.auto_clear_time_entry.insert(0, str(utils.get_auto_clear_time()))
+        ttk.Label(auto_clear_time_frame, text="秒").pack(side=tk.LEFT, padx=5)
+        
+        # 让设置窗口根据内容自动调整大小
+        self.settings_window.update()
+        self.settings_window.minsize(self.settings_window.winfo_width(), self.settings_window.winfo_height())
     
     def update_url(self):
         """更新URL和二维码"""
@@ -193,6 +273,29 @@ class DesktopApp:
                 self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
                 return
             utils.set_window_size(size)
+            
+            # 保存设置窗口大小
+            settings_size = self.settings_size_entry.get().strip()
+            # 简单验证窗口大小格式
+            if 'x' not in settings_size:
+                self.status.config(text="● 设置窗口大小格式错误", foreground="red")
+                self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
+                return
+            utils.set_settings_window_size(settings_size)
+            
+            # 保存智能感知开关设置
+            utils.set_smart_detection(self.smart_detection_var.get())
+            
+            # 保存自动清空开关设置
+            utils.set_auto_clear(self.auto_clear_var.get())
+            
+            # 保存自动清空时间设置
+            auto_clear_time = int(self.auto_clear_time_entry.get())
+            if auto_clear_time <= 0:
+                self.status.config(text="● 清空时间必须大于0", foreground="red")
+                self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
+                return
+            utils.set_auto_clear_time(auto_clear_time)
             
             # 重启服务器以应用新的IP和端口
             self.restart_server()

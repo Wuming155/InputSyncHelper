@@ -13,11 +13,21 @@ clipboard_lock = threading.Lock()
 typing_in_progress = False
 # 默认退格次数限制
 backspace_limit = 100
+# 默认智能感知开关
+smart_detection = True
+# 默认自动清空开关
+auto_clear = False
+# 默认自动清空时间（秒）
+auto_clear_time = 15
 # 默认设置
 settings = {
     'ip': '192.168.10.23',  # 默认使用 192.168.10.23
     'port': 5000,
-    'window_size': '350x500'
+    'window_size': '350x500',
+    'settings_window_size': '400x300',
+    'smart_detection': True,
+    'auto_clear': False,
+    'auto_clear_time': 15
 }
 
 # 保存设置的文件
@@ -26,7 +36,7 @@ SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'settin
 
 def load_settings():
     """加载设置"""
-    global settings, backspace_limit
+    global settings, backspace_limit, smart_detection, auto_clear, auto_clear_time
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
@@ -34,15 +44,24 @@ def load_settings():
                 settings.update(loaded)
                 if 'backspace_limit' in loaded:
                     backspace_limit = loaded['backspace_limit']
+                if 'smart_detection' in loaded:
+                    smart_detection = loaded['smart_detection']
+                if 'auto_clear' in loaded:
+                    auto_clear = loaded['auto_clear']
+                if 'auto_clear_time' in loaded:
+                    auto_clear_time = loaded['auto_clear_time']
         except Exception:
             pass
 
 def save_settings():
     """保存设置"""
-    global settings, backspace_limit
+    global settings, backspace_limit, smart_detection, auto_clear, auto_clear_time
     try:
         data = settings.copy()
         data['backspace_limit'] = backspace_limit
+        data['smart_detection'] = smart_detection
+        data['auto_clear'] = auto_clear
+        data['auto_clear_time'] = auto_clear_time
         with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
     except Exception:
@@ -121,6 +140,49 @@ def set_backspace_limit(limit):
     """设置退格次数限制"""
     global backspace_limit
     backspace_limit = limit
+    save_settings()
+
+def get_smart_detection():
+    """获取智能感知开关状态"""
+    global smart_detection
+    return smart_detection
+
+def set_smart_detection(enabled):
+    """设置智能感知开关状态"""
+    global smart_detection
+    smart_detection = enabled
+    save_settings()
+
+def get_auto_clear():
+    """获取自动清空开关状态"""
+    global auto_clear
+    return auto_clear
+
+def set_auto_clear(enabled):
+    """设置自动清空开关状态"""
+    global auto_clear
+    auto_clear = enabled
+    save_settings()
+
+def get_auto_clear_time():
+    """获取自动清空时间"""
+    global auto_clear_time
+    return auto_clear_time
+
+def set_auto_clear_time(time):
+    """设置自动清空时间"""
+    global auto_clear_time
+    auto_clear_time = time
+    save_settings()
+
+def get_settings_window_size():
+    """获取设置窗口大小"""
+    return settings.get('settings_window_size', '400x300')
+
+def set_settings_window_size(size):
+    """设置设置窗口大小"""
+    global settings
+    settings['settings_window_size'] = size
     save_settings()
 
 # 初始化时加载设置

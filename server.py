@@ -79,7 +79,14 @@ def start_server_thread(loop, ui_callback):
     
     app = web.Application()
     app['ui_callback'] = ui_callback
-    app.router.add_get('/', lambda r: web.Response(text=HTML_PAGE, content_type='text/html'))
+    # 生成带有自动清空设置的HTML页面
+    def get_html_page():
+        auto_clear_enabled = str(utils.get_auto_clear()).lower()
+        auto_clear_time = utils.get_auto_clear_time()
+        html = HTML_PAGE.replace('id="auto_clr" checked', f'id="auto_clr" {"checked" if auto_clear_enabled == "true" else ""}')
+        html = html.replace('15000', str(auto_clear_time * 1000))
+        return html
+    app.router.add_get('/', lambda r: web.Response(text=get_html_page(), content_type='text/html'))
     app.router.add_get('/ws', handle_ws)
     
     runner = web.AppRunner(app)
@@ -90,6 +97,10 @@ def start_server_thread(loop, ui_callback):
     def reset_synced_text():
         global synced_text, rebase_triggered, pending_strip_punctuation
         if utils.is_typing() or not connected_clients: return
+        
+        # 检查全局智能感知开关状态
+        if not utils.get_smart_detection():
+            return
         
         # 只要动了电脑，就重置后端状态并通知手机锁定锚点
         if synced_text and any(c.get('detect_keyboard') for c in client_configs.values()):
