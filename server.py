@@ -84,7 +84,7 @@ def start_server_thread(loop, ui_callback):
     
     runner = web.AppRunner(app)
     loop.run_until_complete(runner.setup())
-    loop.run_until_complete(web.TCPSite(runner, '0.0.0.0', 5000).start())
+    loop.run_until_complete(web.TCPSite(runner, '0.0.0.0', utils.get_port()).start())
     
     # --- 智能感知：监听电脑动作 ---
     def reset_synced_text():
