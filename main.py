@@ -4,6 +4,7 @@ from tkinter import ttk
 import threading
 import asyncio
 import sys
+import time
 import qrcode
 from PIL import Image, ImageDraw, ImageTk
 from pystray import Icon, Menu, MenuItem
@@ -60,8 +61,6 @@ class DesktopApp:
         self.settings_window = None
         self.ip_entry = None
         self.port_entry = None
-        self.size_entry = None
-        self.settings_size_entry = None
         self.backspace_entry = None
         self.smart_detection_var = None
         self.auto_clear_var = None
@@ -115,24 +114,6 @@ class DesktopApp:
         self.port_entry.pack(side=tk.LEFT, padx=5)
         self.port_entry.insert(0, str(utils.get_port()))
         
-        # 窗口大小设置
-        size_frame = ttk.Frame(settings_frame)
-        size_frame.pack(pady=5, fill=tk.X)
-        ttk.Label(size_frame, text="窗口大小：", width=10).pack(side=tk.LEFT, padx=5)
-        self.size_entry = ttk.Entry(size_frame, width=10)
-        self.size_entry.pack(side=tk.LEFT, padx=5)
-        self.size_entry.insert(0, utils.get_window_size())
-        ttk.Label(size_frame, text="（格式：宽x高）").pack(side=tk.LEFT, padx=5)
-        
-        # 设置窗口大小设置
-        settings_size_frame = ttk.Frame(settings_frame)
-        settings_size_frame.pack(pady=5, fill=tk.X)
-        ttk.Label(settings_size_frame, text="设置窗口：", width=10).pack(side=tk.LEFT, padx=5)
-        self.settings_size_entry = ttk.Entry(settings_size_frame, width=10)
-        self.settings_size_entry.pack(side=tk.LEFT, padx=5)
-        self.settings_size_entry.insert(0, utils.get_settings_window_size())
-        ttk.Label(settings_size_frame, text="（格式：宽x高）").pack(side=tk.LEFT, padx=5)
-        
         # 退格次数限制设置
         backspace_frame = ttk.Frame(settings_frame)
         backspace_frame.pack(pady=5, fill=tk.X)
@@ -168,6 +149,20 @@ class DesktopApp:
         # 让设置窗口根据内容自动调整大小
         self.settings_window.update()
         self.settings_window.minsize(self.settings_window.winfo_width(), self.settings_window.winfo_height())
+    
+    def _is_valid_ip(self, ip):
+        """验证 IP 地址格式是否有效"""
+        import re
+        # IPv4 地址格式验证
+        pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+        if not re.match(pattern, ip):
+            return False
+        # 检查每个数字段是否在 0-255 范围内
+        parts = ip.split('.')
+        for part in parts:
+            if int(part) > 255:
+                return False
+        return True
     
     def update_url(self):
         """更新URL和二维码"""
@@ -215,6 +210,10 @@ class DesktopApp:
     def save_settings(self):
         """保存用户设置"""
         try:
+            # 获取旧的 IP 和端口
+            old_ip = utils.get_ip()
+            old_port = utils.get_port()
+            
             # 保存退格次数限制
             backspace_limit = int(self.backspace_entry.get())
             if backspace_limit <= 0:
@@ -223,8 +222,12 @@ class DesktopApp:
                 return
             utils.set_backspace_limit(backspace_limit)
             
-            # 保存IP地址
+            # 保存 IP 地址 - 空字符串表示自动获取
             ip = self.ip_entry.get().strip()
+            if ip and not self._is_valid_ip(ip):
+                self.status.config(text="● 请输入有效的 IP 地址", foreground="red")
+                self.root.after(3000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
+                return
             utils.set_ip(ip)
             
             # 保存端口号
@@ -235,24 +238,6 @@ class DesktopApp:
                 return
             utils.set_port(port)
             
-            # 保存窗口大小
-            size = self.size_entry.get().strip()
-            # 简单验证窗口大小格式
-            if 'x' not in size:
-                self.status.config(text="● 窗口大小格式错误", foreground="red")
-                self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
-                return
-            utils.set_window_size(size)
-            
-            # 保存设置窗口大小
-            settings_size = self.settings_size_entry.get().strip()
-            # 简单验证窗口大小格式
-            if 'x' not in settings_size:
-                self.status.config(text="● 设置窗口大小格式错误", foreground="red")
-                self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
-                return
-            utils.set_settings_window_size(settings_size)
-            
             # 保存智能感知开关设置
             utils.set_smart_detection(self.smart_detection_var.get())
             
@@ -262,18 +247,16 @@ class DesktopApp:
             # 保存自动清空时间设置
             auto_clear_time = int(self.auto_clear_time_entry.get())
             if auto_clear_time <= 0:
-                self.status.config(text="● 清空时间必须大于0", foreground="red")
+                self.status.config(text="● 清空时间必须大于 0", foreground="red")
                 self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
                 return
             utils.set_auto_clear_time(auto_clear_time)
             
-            # 重启服务器以应用新的IP和端口
-            self.restart_server()
+            # 只有当 IP 或端口改变时才重启服务器
+            if ip != old_ip or port != old_port:
+                self.restart_server()
             
-            # 更新窗口大小
-            self.root.geometry(size)
-            
-            # 更新URL和二维码
+            # 更新 URL 和二维码
             self.update_url()
             
             # 关闭设置窗口
@@ -291,11 +274,23 @@ class DesktopApp:
         """重启服务器以应用新的设置"""
         global server_thread, server_loop
         
-        # 停止当前服务器
-        if server_loop:
-            server_loop.call_soon_threadsafe(server_loop.stop)
+        try:
+            # 停止当前服务器
+            if server_loop and server_loop.is_running():
+                server_loop.call_soon_threadsafe(server_loop.stop)
+                
+            # 等待服务器线程结束
             if server_thread:
-                server_thread.join(timeout=1)
+                server_thread.join(timeout=3)
+                
+            # 关闭旧的事件循环
+            if server_loop:
+                server_loop.close()
+        except Exception as e:
+            print(f"停止服务器时出错：{e}")
+        
+        # 增加延迟时间，确保端口完全释放
+        time.sleep(1.5)
         
         # 启动新服务器
         server_loop = asyncio.new_event_loop()
@@ -305,6 +300,9 @@ class DesktopApp:
             daemon=True
         )
         server_thread.start()
+        
+        # 等待服务器启动完成
+        time.sleep(0.5)
 
     def quit_all(self): 
         self.icon.stop()

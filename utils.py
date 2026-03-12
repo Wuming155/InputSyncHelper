@@ -23,8 +23,6 @@ auto_clear_time = 15
 settings = {
     'ip': '',  # 默认自动获取局域网 IP
     'port': 5000,
-    'window_size': '350x500',
-    'settings_window_size': '400x300',
     'smart_detection': True,
     'auto_clear': False,
     'auto_clear_time': 15
@@ -32,7 +30,17 @@ settings = {
 
 # 保存设置的文件
 # 使用绝对路径，确保设置文件保存在应用程序根目录
-SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'settings.json')
+# 修复 PyInstaller 打包后的路径问题
+def get_app_path():
+    """获取应用程序所在目录，兼容 PyInstaller 打包"""
+    if getattr(sys, 'frozen', False):
+        # PyInstaller 打包后的环境
+        return os.path.dirname(sys.executable)
+    else:
+        # 开发环境
+        return os.path.dirname(os.path.abspath(__file__))
+
+SETTINGS_FILE = os.path.join(get_app_path(), 'settings.json')
 
 def load_settings():
     """加载设置"""
@@ -83,10 +91,6 @@ def get_port():
     """获取端口号"""
     return settings['port']
 
-def get_window_size():
-    """获取窗口大小"""
-    return settings['window_size']
-
 def set_ip(ip):
     """设置IP地址"""
     global settings
@@ -99,12 +103,6 @@ def set_port(port):
     settings['port'] = port
     save_settings()
 
-def set_window_size(size):
-    """设置窗口大小"""
-    global settings
-    settings['window_size'] = size
-    save_settings()
-
 def compute_diff(old, new):
     common = 0
     for i in range(min(len(old), len(new))):
@@ -113,6 +111,7 @@ def compute_diff(old, new):
     return len(old) - common, new[common:]
 
 def type_text(text):
+    """使用剪贴板方式输入文本"""
     global typing_in_progress
     if not text: return
     typing_in_progress = True
@@ -178,16 +177,6 @@ def set_auto_clear_time(time):
     """设置自动清空时间"""
     global auto_clear_time
     auto_clear_time = time
-    save_settings()
-
-def get_settings_window_size():
-    """获取设置窗口大小"""
-    return settings.get('settings_window_size', '400x300')
-
-def set_settings_window_size(size):
-    """设置设置窗口大小"""
-    global settings
-    settings['settings_window_size'] = size
     save_settings()
 
 # 初始化时加载设置
