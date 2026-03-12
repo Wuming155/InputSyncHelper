@@ -139,7 +139,7 @@ class DesktopApp:
         ttk.Label(backspace_frame, text="退格限制：", width=10).pack(side=tk.LEFT, padx=5)
         self.backspace_entry = ttk.Entry(backspace_frame, width=10)
         self.backspace_entry.pack(side=tk.LEFT, padx=5)
-        self.backspace_entry.insert(0, "100")  # 默认值
+        self.backspace_entry.insert(0, str(utils.get_backspace_limit()))
         ttk.Label(backspace_frame, text="次").pack(side=tk.LEFT, padx=5)
         
         # 智能感知开关设置

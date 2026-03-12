@@ -136,6 +136,11 @@ def send_backspaces(count):
     pyautogui.press('backspace', presses=safe_count, interval=0.005) 
     typing_in_progress = False
 
+def get_backspace_limit():
+    """获取退格次数限制"""
+    global backspace_limit
+    return backspace_limit
+
 def set_backspace_limit(limit):
     """设置退格次数限制"""
     global backspace_limit
