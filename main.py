@@ -62,7 +62,6 @@ class DesktopApp:
         self.ip_entry = None
         self.port_entry = None
         self.backspace_entry = None
-        self.smart_detection_var = None
         self.auto_clear_var = None
         self.auto_clear_time_entry = None
         
@@ -122,13 +121,6 @@ class DesktopApp:
         self.backspace_entry.pack(side=tk.LEFT, padx=5)
         self.backspace_entry.insert(0, str(utils.get_backspace_limit()))
         ttk.Label(backspace_frame, text="次").pack(side=tk.LEFT, padx=5)
-        
-        # 智能感知开关设置
-        smart_detection_frame = ttk.Frame(settings_frame)
-        smart_detection_frame.pack(pady=5, fill=tk.X)
-        ttk.Label(smart_detection_frame, text="智能感知：", width=10).pack(side=tk.LEFT, padx=5)
-        self.smart_detection_var = tk.BooleanVar(value=utils.get_smart_detection())
-        ttk.Checkbutton(smart_detection_frame, variable=self.smart_detection_var, text="开启电脑操作检测\n（开启后，电脑操作会重置同步状态）").pack(side=tk.LEFT, padx=5, anchor=tk.W)
         
         # 自动清空开关设置
         auto_clear_frame = ttk.Frame(settings_frame)
@@ -237,9 +229,6 @@ class DesktopApp:
                 self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
                 return
             utils.set_port(port)
-            
-            # 保存智能感知开关设置
-            utils.set_smart_detection(self.smart_detection_var.get())
             
             # 保存自动清空开关设置
             utils.set_auto_clear(self.auto_clear_var.get())

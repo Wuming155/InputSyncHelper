@@ -13,7 +13,7 @@ clipboard_lock = threading.Lock()
 typing_in_progress = False
 # 默认退格次数限制
 backspace_limit = 100
-# 默认智能感知开关
+# 智能感知始终开启
 smart_detection = True
 # 默认自动清空开关
 auto_clear = False
@@ -23,28 +23,71 @@ auto_clear_time = 15
 settings = {
     'ip': '',  # 默认自动获取局域网 IP
     'port': 5000,
-    'smart_detection': True,
     'auto_clear': False,
     'auto_clear_time': 15
 }
 
 # 保存设置的文件
-# 使用绝对路径，确保设置文件保存在应用程序根目录
-# 修复 PyInstaller 打包后的路径问题
-def get_app_path():
-    """获取应用程序所在目录，兼容 PyInstaller 打包"""
-    if getattr(sys, 'frozen', False):
-        # PyInstaller 打包后的环境
-        return os.path.dirname(sys.executable)
+# 使用用户数据目录，确保打包后有写入权限
+def get_settings_path():
+    """获取配置文件路径，兼容 PyInstaller 打包"""
+    if platform.system() == 'Windows':
+        # Windows: 使用 APPDATA 目录
+        app_data = os.environ.get('APPDATA', '')
+        if app_data:
+            app_dir = os.path.join(app_data, 'InputSyncHelper')
+        else:
+            # 如果没有 APPDATA，使用程序所在目录
+            if getattr(sys, 'frozen', False):
+                app_dir = os.path.dirname(sys.executable)
+            else:
+                app_dir = os.path.dirname(os.path.abspath(__file__))
+    elif platform.system() == 'Darwin':
+        # macOS: 使用 Application Support 目录
+        app_dir = os.path.join(os.path.expanduser('~/Library/Application Support/InputSyncHelper'))
     else:
-        # 开发环境
-        return os.path.dirname(os.path.abspath(__file__))
+        # Linux: 使用 XDG 配置目录
+        xdg_config = os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config'))
+        app_dir = os.path.join(xdg_config, 'InputSyncHelper')
+    
+    # 确保目录存在
+    os.makedirs(app_dir, exist_ok=True)
+    return os.path.join(app_dir, 'settings.json')
 
-SETTINGS_FILE = os.path.join(get_app_path(), 'settings.json')
+SETTINGS_FILE = get_settings_path()
+
+def get_old_settings_path():
+    """获取旧的配置文件路径（程序目录）"""
+    if getattr(sys, 'frozen', False):
+        return os.path.join(os.path.dirname(sys.executable), 'settings.json')
+    else:
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'settings.json')
+
+def migrate_old_settings():
+    """迁移旧的配置文件到新位置"""
+    old_path = get_old_settings_path()
+    # 如果旧文件存在且新文件不存在，则迁移
+    if os.path.exists(old_path) and not os.path.exists(SETTINGS_FILE):
+        try:
+            import shutil
+            shutil.copy2(old_path, SETTINGS_FILE)
+            print(f"配置文件已迁移到：{SETTINGS_FILE}")
+            return True
+        except Exception as e:
+            print(f"迁移失败：{e}")
+            return False
+    return False
 
 def load_settings():
     """加载设置"""
     global settings, backspace_limit, smart_detection, auto_clear, auto_clear_time
+    
+    # 先尝试迁移旧配置
+    migrate_old_settings()
+    
+    # 智能感知始终为开启状态
+    smart_detection = True
+    
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
@@ -52,19 +95,22 @@ def load_settings():
                 settings.update(loaded)
                 if 'backspace_limit' in loaded:
                     backspace_limit = loaded['backspace_limit']
-                if 'smart_detection' in loaded:
-                    smart_detection = loaded['smart_detection']
                 if 'auto_clear' in loaded:
                     auto_clear = loaded['auto_clear']
                 if 'auto_clear_time' in loaded:
                     auto_clear_time = loaded['auto_clear_time']
-        except Exception:
-            pass
+            print(f"设置已从 {SETTINGS_FILE} 加载")
+        except Exception as e:
+            print(f"加载设置失败：{e}")
+    else:
+        print(f"配置文件不存在：{SETTINGS_FILE}，将使用默认设置")
 
 def save_settings():
     """保存设置"""
     global settings, backspace_limit, smart_detection, auto_clear, auto_clear_time
     try:
+        # 智能感知始终为开启状态
+        smart_detection = True
         data = settings.copy()
         data['backspace_limit'] = backspace_limit
         data['smart_detection'] = smart_detection
@@ -72,8 +118,10 @@ def save_settings():
         data['auto_clear_time'] = auto_clear_time
         with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-    except Exception:
-        pass
+        print(f"设置已保存到：{SETTINGS_FILE}")
+    except Exception as e:
+        print(f"保存设置失败：{e}")
+        print(f"配置文件路径：{SETTINGS_FILE}")
 
 def get_local_ip():
     try:
