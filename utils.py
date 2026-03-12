@@ -21,7 +21,7 @@ auto_clear = False
 auto_clear_time = 15
 # 默认设置
 settings = {
-    'ip': '192.168.10.23',  # 默认使用 192.168.10.23
+    'ip': '',  # 默认自动获取局域网 IP
     'port': 5000,
     'window_size': '350x500',
     'settings_window_size': '400x300',
