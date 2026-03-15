@@ -31,29 +31,35 @@ settings = {
 # 使用用户数据目录，确保打包后有写入权限
 def get_settings_path():
     """获取配置文件路径，兼容 PyInstaller 打包"""
-    if platform.system() == 'Windows':
-        # Windows: 使用 APPDATA 目录
-        app_data = os.environ.get('APPDATA', '')
-        if app_data:
-            app_dir = os.path.join(app_data, 'InputSyncHelper')
-        else:
-            # 如果没有 APPDATA，使用程序所在目录
-            if getattr(sys, 'frozen', False):
-                app_dir = os.path.dirname(sys.executable)
-            else:
-                app_dir = os.path.dirname(os.path.abspath(__file__))
-    elif platform.system() == 'Darwin':
-        # macOS: 使用 Application Support 目录
-        app_dir = os.path.join(os.path.expanduser('~/Library/Application Support/InputSyncHelper'))
-    else:
-        # Linux: 使用 XDG 配置目录
-        xdg_config = os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config'))
-        app_dir = os.path.join(xdg_config, 'InputSyncHelper')
+    app_name = "InputSyncHelper"
     
-    # 确保目录存在
-    os.makedirs(app_dir, exist_ok=True)
-    return os.path.join(app_dir, 'settings.json')
+    try:
+        if platform.system() == 'Windows':
+            # Windows: 强制使用 APPDATA 目录，避免权限问题
+            base_dir = os.environ.get('APPDATA', os.path.expanduser('~\\AppData\\Roaming'))
+        elif platform.system() == 'Darwin':
+            # macOS: 使用 Application Support 目录
+            base_dir = os.path.expanduser('~/Library/Application Support')
+        else:
+            # Linux: 使用 XDG 配置目录
+            base_dir = os.environ.get('XDG_CONFIG_HOME', os.path.expanduser('~/.config'))
+        
+        app_dir = os.path.join(base_dir, app_name)
+        
+        # 确保目录存在
+        try:
+            if not os.path.exists(app_dir):
+                os.makedirs(app_dir, exist_ok=True)
+        except Exception:
+            # 如果连家目录都没权限，最后保命措施：使用当前目录
+            return "settings.json"
+            
+        return os.path.join(app_dir, 'settings.json')
+    except Exception:
+        # 极端情况下，使用当前目录
+        return "settings.json"
 
+# 确保 SETTINGS_FILE 在加载前已经确定
 SETTINGS_FILE = get_settings_path()
 
 def get_old_settings_path():
@@ -85,23 +91,20 @@ def load_settings():
     # 先尝试迁移旧配置
     migrate_old_settings()
     
-    # 智能感知始终为开启状态
-    smart_detection = True
-    
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
                 loaded = json.load(f)
                 settings.update(loaded)
-                if 'backspace_limit' in loaded:
-                    backspace_limit = loaded['backspace_limit']
-                if 'auto_clear' in loaded:
-                    auto_clear = loaded['auto_clear']
-                if 'auto_clear_time' in loaded:
-                    auto_clear_time = loaded['auto_clear_time']
-            print(f"设置已从 {SETTINGS_FILE} 加载")
+                
+                # 只有当 JSON 里有值时才覆盖，否则保留默认
+                backspace_limit = loaded.get('backspace_limit', backspace_limit)
+                smart_detection = loaded.get('smart_detection', smart_detection)
+                auto_clear = loaded.get('auto_clear', auto_clear)
+                auto_clear_time = loaded.get('auto_clear_time', auto_clear_time)
+            print(f"成功加载：{SETTINGS_FILE}")
         except Exception as e:
-            print(f"加载设置失败：{e}")
+            print(f"读取配置异常：{e}")
     else:
         print(f"配置文件不存在：{SETTINGS_FILE}，将使用默认设置")
 
@@ -109,8 +112,6 @@ def save_settings():
     """保存设置"""
     global settings, backspace_limit, smart_detection, auto_clear, auto_clear_time
     try:
-        # 智能感知始终为开启状态
-        smart_detection = True
         data = settings.copy()
         data['backspace_limit'] = backspace_limit
         data['smart_detection'] = smart_detection
@@ -231,8 +232,13 @@ def set_auto_clear_time(time):
 load_settings()
 
 # 初始化时保存默认设置（如果文件不存在）
-if not os.path.exists(SETTINGS_FILE):
-    save_settings()
+# 注意：只有在配置文件确实不存在时才保存，避免覆盖已有配置
+try:
+    if not os.path.exists(SETTINGS_FILE):
+        save_settings()
+except Exception:
+    # 如果保存失败，可能是权限问题，使用当前目录作为备选
+    pass
 
 def is_typing():
     return typing_in_progress
