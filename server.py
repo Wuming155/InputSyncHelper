@@ -15,6 +15,24 @@ rebase_triggered = False  # 标记是否已触发增量模式
 pending_strip_punctuation = False  # 标记重置后的第一笔输入是否剔除标点
 main_loop = None
 
+def broadcast_config():
+    """广播配置更新到所有连接的客户端"""
+    global main_loop
+    if not main_loop:
+        return
+    
+    config = {
+        'type': 'config',
+        'backspaceLimit': utils.get_backspace_limit(),
+        'autoClear': utils.get_auto_clear(),
+        'autoClearTime': utils.get_auto_clear_time(),
+        'smartDetection': utils.get_smart_detection()
+    }
+    
+    for ws in list(connected_clients):
+        if not ws.closed:
+            asyncio.run_coroutine_threadsafe(ws.send_json(config), main_loop)
+
 async def handle_ws(req):
     global synced_text, rebase_triggered, pending_strip_punctuation
     ws = web.WebSocketResponse()
@@ -79,11 +97,11 @@ def start_server_thread(loop, ui_callback):
     
     app = web.Application()
     app['ui_callback'] = ui_callback
-    # 生成带有自动清空设置的HTML页面
+    # 生成带有自动清空设置的 HTML 页面
     def get_html_page():
-        auto_clear_enabled = str(utils.get_auto_clear()).lower()
+        auto_clear_enabled = utils.get_auto_clear()
         auto_clear_time = utils.get_auto_clear_time()
-        html = HTML_PAGE.replace('id="auto_clr" checked', f'id="auto_clr" {"checked" if auto_clear_enabled == "true" else ""}')
+        html = HTML_PAGE.replace('id="auto_clr"', f'id="auto_clr" {"checked" if auto_clear_enabled else ""}')
         html = html.replace('15000', str(auto_clear_time * 1000))
         return html
     app.router.add_get('/', lambda r: web.Response(text=get_html_page(), content_type='text/html'))

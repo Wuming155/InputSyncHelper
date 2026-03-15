@@ -52,12 +52,13 @@ HTML_PAGE = """
         <div class="modal-content">
             <h3 style="margin-bottom:20px;">同步设置</h3>
             <div class="row"><span>发送延迟(ms)</span><input type="number" id="dly" value="300" style="width:60px"></div>
-            <div class="row"><span>15s 自动消失</span><input type="checkbox" id="auto_clr" checked></div>
+            <div class="row"><span>15s 自动消失</span><input type="checkbox" id="auto_clr"></div>
             <div class="row"><span>智能感知重置</span><input type="checkbox" id="kb" checked></div>
             <button class="close-btn" onclick="closeM()">完成</button>
         </div>
     </div>
     <script>
+        window.autoClearTime = 15000;
         const tx = document.getElementById('tx'), st = document.getElementById('st'), 
               dot = document.getElementById('dot'), count = document.getElementById('count'),
               st_detail = document.getElementById('st_detail');
@@ -85,6 +86,10 @@ HTML_PAGE = """
                     lastText = ''; 
                     st_detail.innerText='电脑端操作中：本段已锁定'; 
                     setTimeout(()=>st_detail.innerText='实时同步中', 1500); 
+                } else if (d.type === 'config') {
+                    // 【新增】收到热更新，直接修改手机页面的复选框和清空时间
+                    document.getElementById('auto_clr').checked = d.autoClear;
+                    window.autoClearTime = d.autoClearTime * 1000;
                 }
             };
         }
@@ -108,7 +113,7 @@ HTML_PAGE = """
             if(document.getElementById('auto_clr').checked) {
                 autoClearTimer = setTimeout(() => {
                     if(tx.value !== '') clearText(false);
-                }, 15000); 
+                }, window.autoClearTime); 
             }
         };
 

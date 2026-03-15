@@ -202,62 +202,35 @@ class DesktopApp:
     def save_settings(self):
         """保存用户设置"""
         try:
-            # 获取旧的 IP 和端口
-            old_ip = utils.get_ip()
-            old_port = utils.get_port()
-            
-            # 保存退格次数限制
-            backspace_limit = int(self.backspace_entry.get())
-            if backspace_limit <= 0:
-                self.status.config(text="● 请输入正数", foreground="red")
-                self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
-                return
-            utils.set_backspace_limit(backspace_limit)
-            
-            # 保存 IP 地址 - 空字符串表示自动获取
-            ip = self.ip_entry.get().strip()
-            if ip and not self._is_valid_ip(ip):
-                self.status.config(text="● 请输入有效的 IP 地址", foreground="red")
-                self.root.after(3000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
-                return
-            utils.set_ip(ip)
-            
-            # 保存端口号
-            port = int(self.port_entry.get())
-            if port < 1 or port > 65535:
-                self.status.config(text="● 端口号范围：1-65535", foreground="red")
-                self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
-                return
-            utils.set_port(port)
-            
-            # 保存自动清空开关设置
+            # 补全其他业务设置的保存
+            utils.set_backspace_limit(int(self.backspace_entry.get()))
             utils.set_auto_clear(self.auto_clear_var.get())
-            
-            # 保存自动清空时间设置
-            auto_clear_time = int(self.auto_clear_time_entry.get())
-            if auto_clear_time <= 0:
-                self.status.config(text="● 清空时间必须大于 0", foreground="red")
-                self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
-                return
-            utils.set_auto_clear_time(auto_clear_time)
-            
-            # 只有当 IP 或端口改变时才重启服务器
-            if ip != old_ip or port != old_port:
+            utils.set_auto_clear_time(int(self.auto_clear_time_entry.get()))
+
+            # --- 核心修改：区分重启还是广播 ---
+            # 只有改了 IP 或 端口，才需要重启服务器
+            new_ip = self.ip_entry.get()
+            new_port = int(self.port_entry.get())
+            old_ip = utils.get_port_info()['ip']
+            old_port = utils.get_port()
+
+            if new_ip != old_ip or new_port != old_port:
+                utils.set_port(new_port)
+                utils.set_ip(new_ip)
                 self.restart_server()
-            
-            # 更新 URL 和二维码
-            self.update_url()
-            
-            # 关闭设置窗口
-            if self.settings_window and self.settings_window.winfo_exists():
-                self.settings_window.destroy()
-            
-            # 显示保存成功提示
-            self.status.config(text="● 设置保存成功", foreground="#28a745")
-            self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
-        except ValueError:
-            self.status.config(text="● 请输入正确的数字", foreground="red")
-            self.root.after(2000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
+            else:
+                # 仅仅修改业务配置（退格、清空等），直接广播，手机不掉线
+                try:
+                    server.broadcast_config()
+                    self.update_url() # 更新主界面显示
+                except:
+                    pass
+            # -------------------------------
+
+            self.settings_window.destroy()
+        except ValueError as e:
+            print(f"保存设置失败：{e}")
+            pass
     
     def restart_server(self):
         """重启服务器以应用新的设置"""
@@ -279,19 +252,24 @@ class DesktopApp:
             print(f"停止服务器时出错：{e}")
         
         # 增加延迟时间，确保端口完全释放
-        time.sleep(1.5)
+        time.sleep(2.0)
         
         # 启动新服务器
-        server_loop = asyncio.new_event_loop()
-        server_thread = threading.Thread(
-            target=server.start_server_thread, 
-            args=(server_loop, self.update_st_callback), 
-            daemon=True
-        )
-        server_thread.start()
-        
-        # 等待服务器启动完成
-        time.sleep(0.5)
+        try:
+            server_loop = asyncio.new_event_loop()
+            server_thread = threading.Thread(
+                target=server.start_server_thread, 
+                args=(server_loop, self.update_st_callback), 
+                daemon=True
+            )
+            server_thread.start()
+            
+            # 等待服务器启动完成
+            time.sleep(0.5)
+        except OSError as e:
+            print(f"启动服务器失败：{e}")
+            self.status.config(text=f"● 端口被占用，请更换端口", foreground="red")
+            self.root.after(3000, lambda: self.status.config(text="● 等待手机连接...", foreground="red"))
 
     def quit_all(self): 
         self.icon.stop()
