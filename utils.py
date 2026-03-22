@@ -171,7 +171,13 @@ def type_text(text):
             cmd = 'command' if platform.system() == 'Darwin' else 'ctrl'
             pyautogui.hotkey(cmd, 'v')
             time.sleep(0.01)
-            pyperclip.copy(orig)
+            # 检查剪贴板是否被外部修改（如语音输入法）
+            # 如果被修改了，说明有外部输入介入，不恢复原始剪贴板内容
+            current_clipboard = pyperclip.paste()
+            if current_clipboard == text:
+                # 剪贴板内容还是我们设置的，可以安全恢复
+                pyperclip.copy(orig)
+            # 否则：剪贴板已被外部修改，保留外部内容
         except: pass
     typing_in_progress = False
 
